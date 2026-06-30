@@ -1,0 +1,762 @@
+<title>TETRIS — 80s ARCADE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#060610;
+  --pink:#ff0066;
+  --cyan:#00ffee;
+  --yellow:#ffee00;
+  --green:#00ff88;
+  --orange:#ff8800;
+  --panel:#0a0a1e;
+}
+
+body{
+  background:var(--bg);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  font-family:'Courier New',Courier,monospace;
+  overflow:hidden;
+  user-select:none;
+}
+
+#bgCanvas{
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  pointer-events:none;
+  opacity:.4;
+}
+
+.arcade{
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+}
+
+.marquee{
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+
+.marquee-bar{
+  width:60px;height:3px;
+  background:linear-gradient(90deg,transparent,var(--pink));
+}
+.marquee-bar.right{
+  background:linear-gradient(90deg,var(--pink),transparent);
+}
+
+.title{
+  color:var(--pink);
+  font-size:2.4rem;
+  font-weight:700;
+  letter-spacing:14px;
+  text-transform:uppercase;
+  text-shadow:0 0 10px var(--pink),0 0 30px var(--pink),0 0 60px rgba(255,0,102,.4);
+  padding-right:14px; /* compensate letter-spacing on last char */
+}
+
+.subtitle{
+  color:rgba(0,255,238,.5);
+  font-size:.55rem;
+  letter-spacing:5px;
+  text-transform:uppercase;
+  margin-top:-6px;
+  text-shadow:0 0 8px var(--cyan);
+}
+
+.game-row{
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+}
+
+/* CRT wrapper */
+.crt{
+  position:relative;
+  border-radius:4px;
+  overflow:hidden;
+}
+
+.crt::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,.18) 3px,
+      rgba(0,0,0,.18) 4px
+    );
+  pointer-events:none;
+  z-index:2;
+  border-radius:4px;
+}
+
+.crt::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.55) 100%);
+  pointer-events:none;
+  z-index:3;
+  border-radius:4px;
+}
+
+#gameCanvas{
+  display:block;
+  border:2px solid rgba(0,255,238,.6);
+  box-shadow:
+    0 0 0 1px rgba(0,255,238,.15),
+    0 0 20px rgba(0,255,238,.4),
+    0 0 50px rgba(0,255,238,.15),
+    inset 0 0 30px rgba(0,0,0,.6);
+  image-rendering:pixelated;
+  border-radius:2px;
+}
+
+/* Right panel */
+.panel{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:110px;
+}
+
+.pbox{
+  background:var(--panel);
+  border:1px solid rgba(0,255,238,.25);
+  padding:8px 10px;
+  position:relative;
+}
+
+.pbox::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:.4;
+}
+
+.plabel{
+  color:rgba(0,255,238,.5);
+  font-size:.48rem;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  margin-bottom:5px;
+}
+
+.pval{
+  color:var(--yellow);
+  font-size:1.05rem;
+  letter-spacing:2px;
+  font-weight:700;
+  text-shadow:0 0 10px var(--yellow),0 0 20px rgba(255,238,0,.3);
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+}
+
+#nextCanvas{
+  display:block;
+  margin-top:6px;
+  image-rendering:pixelated;
+}
+
+.ctrl{
+  border:1px solid rgba(255,0,102,.2);
+  background:rgba(255,0,102,.03);
+  padding:8px 10px;
+}
+
+.ctrl .plabel{margin-bottom:8px;}
+
+.ctrl-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:5px;
+}
+
+.ctrl-key{
+  color:rgba(0,255,238,.7);
+  font-size:.5rem;
+  background:rgba(0,255,238,.08);
+  border:1px solid rgba(0,255,238,.25);
+  padding:2px 5px;
+  letter-spacing:1px;
+  font-family:'Courier New',monospace;
+}
+
+.ctrl-desc{
+  color:rgba(255,255,255,.25);
+  font-size:.46rem;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+
+.credit{
+  color:rgba(255,0,102,.3);
+  font-size:.45rem;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  text-align:center;
+  animation:blink 1.2s step-end infinite;
+}
+.credit.hidden{display:none;}
+
+@keyframes blink{
+  0%,100%{opacity:1}
+  50%{opacity:0}
+}
+
+/* Mobile touch buttons */
+.touch-controls{
+  display:none;
+  gap:8px;
+  margin-top:8px;
+}
+
+.touch-row{
+  display:flex;
+  gap:8px;
+  justify-content:center;
+}
+
+.tbtn{
+  width:52px;height:52px;
+  border:2px solid rgba(0,255,238,.4);
+  background:rgba(0,255,238,.05);
+  color:var(--cyan);
+  font-size:1.2rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  border-radius:3px;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .1s;
+}
+
+.tbtn:active{background:rgba(0,255,238,.2);}
+
+.tbtn.wide{width:112px;}
+.tbtn.drop{
+  border-color:rgba(255,238,0,.4);
+  color:var(--yellow);
+  background:rgba(255,238,0,.05);
+}
+.tbtn.drop:active{background:rgba(255,238,0,.2);}
+
+@media(max-width:520px){
+  .touch-controls{display:flex;flex-direction:column;}
+  .game-row{gap:10px;}
+  .panel{width:90px;}
+  .title{font-size:1.6rem;letter-spacing:8px;}
+  .pval{font-size:.9rem;}
+}
+</style>
+
+<!-- Starfield background -->
+<canvas id="bgCanvas"></canvas>
+
+<div class="arcade">
+  <div class="marquee">
+    <div class="marquee-bar"></div>
+    <div class="title">TETRIS</div>
+    <div class="marquee-bar right"></div>
+  </div>
+  <div class="subtitle">© 1984 ARCADE EDITION</div>
+
+  <div class="game-row">
+    <div class="crt">
+      <canvas id="gameCanvas" width="300" height="600"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="pbox">
+        <div class="plabel">Score</div>
+        <div class="pval" id="scoreEl">000000</div>
+      </div>
+      <div class="pbox">
+        <div class="plabel">Hi-Score</div>
+        <div class="pval" id="hiEl">000000</div>
+      </div>
+      <div class="pbox">
+        <div class="plabel">Level</div>
+        <div class="pval" id="levelEl">01</div>
+      </div>
+      <div class="pbox">
+        <div class="plabel">Lines</div>
+        <div class="pval" id="linesEl">000</div>
+      </div>
+      <div class="pbox">
+        <div class="plabel">Next</div>
+        <canvas id="nextCanvas" width="90" height="72"></canvas>
+      </div>
+      <div class="pbox ctrl">
+        <div class="plabel">Controls</div>
+        <div class="ctrl-row"><span class="ctrl-key">←→</span><span class="ctrl-desc">Move</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">↑</span><span class="ctrl-desc">Rotate</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">↓</span><span class="ctrl-desc">Soft</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">SPC</span><span class="ctrl-desc">Drop</span></div>
+        <div class="ctrl-row"><span class="ctrl-key">P</span><span class="ctrl-desc">Pause</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="touch-controls">
+    <div class="touch-row">
+      <button class="tbtn" id="tLeft">←</button>
+      <button class="tbtn" id="tRotate">↑</button>
+      <button class="tbtn" id="tRight">→</button>
+    </div>
+    <div class="touch-row">
+      <button class="tbtn wide" id="tDown">↓ soft</button>
+      <button class="tbtn wide drop" id="tDrop">⬇ drop</button>
+    </div>
+  </div>
+
+  <div class="credit" id="credit">INSERT COIN — PRESS ENTER</div>
+</div>
+
+<script>
+// ─── Starfield ───────────────────────────────────────────────
+const bg = document.getElementById('bgCanvas');
+const bgCtx = bg.getContext('2d');
+let stars = [];
+
+function initStars() {
+  bg.width = window.innerWidth;
+  bg.height = window.innerHeight;
+  stars = Array.from({length: 120}, () => ({
+    x: Math.random() * bg.width,
+    y: Math.random() * bg.height,
+    r: Math.random() * 1.2,
+    a: Math.random(),
+    da: (Math.random() - .5) * .005,
+  }));
+}
+
+function animStars() {
+  bgCtx.clearRect(0, 0, bg.width, bg.height);
+  stars.forEach(s => {
+    s.a += s.da;
+    if (s.a < 0) s.da = Math.abs(s.da);
+    if (s.a > 1) s.da = -Math.abs(s.da);
+    bgCtx.beginPath();
+    bgCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    bgCtx.fillStyle = `rgba(0,255,238,${s.a * .7})`;
+    bgCtx.fill();
+  });
+  requestAnimationFrame(animStars);
+}
+
+initStars();
+animStars();
+window.addEventListener('resize', initStars);
+
+// ─── Tetris ───────────────────────────────────────────────────
+const COLS = 10, ROWS = 20, B = 30;
+const gc = document.getElementById('gameCanvas');
+const gx = gc.getContext('2d');
+const nc = document.getElementById('nextCanvas');
+const nx = nc.getContext('2d');
+
+const COL = {
+  I:'#00ffee', O:'#ffee00', T:'#ff00aa',
+  S:'#00ff88', Z:'#ff4422', J:'#4488ff', L:'#ff8800'
+};
+const DIM = {
+  I:'rgba(0,255,238,.15)', O:'rgba(255,238,0,.15)',
+  T:'rgba(255,0,170,.15)', S:'rgba(0,255,136,.15)',
+  Z:'rgba(255,68,34,.15)', J:'rgba(68,136,255,.15)',
+  L:'rgba(255,136,0,.15)'
+};
+
+const SHAPES = {
+  I:{s:[[1,1,1,1]],c:'I'},
+  O:{s:[[1,1],[1,1]],c:'O'},
+  T:{s:[[0,1,0],[1,1,1]],c:'T'},
+  S:{s:[[0,1,1],[1,1,0]],c:'S'},
+  Z:{s:[[1,1,0],[0,1,1]],c:'Z'},
+  J:{s:[[1,0,0],[1,1,1]],c:'J'},
+  L:{s:[[0,0,1],[1,1,1]],c:'L'},
+};
+
+const KEYS = Object.keys(SHAPES);
+// Bag randomizer
+let bag = [];
+function nextBag() {
+  bag = [...KEYS];
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [bag[i], bag[j]] = [bag[j], bag[i]];
+  }
+}
+function drawFromBag() {
+  if (!bag.length) nextBag();
+  return bag.pop();
+}
+
+function mkPiece(key) {
+  const p = SHAPES[key];
+  return {
+    s: p.s.map(r => [...r]),
+    c: p.c,
+    x: Math.floor(COLS / 2) - Math.floor(p.s[0].length / 2),
+    y: 0,
+  };
+}
+
+function rotate90(shape) {
+  const R = shape.length, C = shape[0].length;
+  const out = Array.from({length: C}, () => Array(R).fill(0));
+  for (let r = 0; r < R; r++)
+    for (let c = 0; c < C; c++)
+      out[c][R - 1 - r] = shape[r][c];
+  return out;
+}
+
+let board, cur, nxt, score, hi, level, lines;
+let over, paused, dropMs, lastTs;
+let raf;
+let clearFlash = []; // rows being cleared for flash effect
+let flashTimer = 0;
+
+const scoreEl = document.getElementById('scoreEl');
+const hiEl = document.getElementById('hiEl');
+const levelEl = document.getElementById('levelEl');
+const linesEl = document.getElementById('linesEl');
+const creditEl = document.getElementById('credit');
+
+function valid(shape, x, y) {
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++)
+      if (shape[r][c]) {
+        const nx2 = x + c, ny = y + r;
+        if (nx2 < 0 || nx2 >= COLS || ny >= ROWS) return false;
+        if (ny >= 0 && board[ny][nx2]) return false;
+      }
+  return true;
+}
+
+function ghost() {
+  let gy = cur.y;
+  while (valid(cur.s, cur.x, gy + 1)) gy++;
+  return gy;
+}
+
+function lock() {
+  cur.s.forEach((row, r) =>
+    row.forEach((v, c) => {
+      if (v && cur.y + r >= 0)
+        board[cur.y + r][cur.x + c] = cur.c;
+    })
+  );
+
+  let cleared = [];
+  for (let r = ROWS - 1; r >= 0; r--)
+    if (board[r].every(v => v)) cleared.push(r);
+
+  if (cleared.length) {
+    clearFlash = cleared;
+    flashTimer = 180; // ms for flash
+    setTimeout(() => {
+      cleared.sort((a, b) => b - a).forEach(r => {
+        board.splice(r, 1);
+        board.unshift(Array(COLS).fill(null));
+      });
+      clearFlash = [];
+      const pts = [0,100,300,500,800][cleared.length] * level;
+      score += pts;
+      lines += cleared.length;
+      level = Math.floor(lines / 10) + 1;
+      dropMs = Math.max(80, 800 - (level - 1) * 72);
+      if (score > hi) hi = score;
+      updateUI();
+      spawn();
+    }, 180);
+    return;
+  }
+
+  spawn();
+}
+
+function spawn() {
+  cur = mkPiece(drawFromBag());
+  nxt = nxt_queued;
+  nxt_queued = mkPiece(drawFromBag());
+  if (!valid(cur.s, cur.x, cur.y)) { over = true; if (score > hi) hi = score; }
+  drawNext();
+}
+
+let nxt_queued;
+
+function init() {
+  board = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+  score = 0; level = 1; lines = 0;
+  over = false; paused = false; dropMs = 800;
+  bag = []; nextBag();
+  cur = mkPiece(drawFromBag());
+  nxt = mkPiece(drawFromBag());
+  nxt_queued = mkPiece(drawFromBag());
+  updateUI();
+  drawNext();
+  creditEl.classList.add('hidden');
+}
+
+function updateUI() {
+  scoreEl.textContent = String(score).padStart(6,'0');
+  hiEl.textContent = String(hi).padStart(6,'0');
+  levelEl.textContent = String(level).padStart(2,'0');
+  linesEl.textContent = String(lines).padStart(3,'0');
+}
+
+// ─── Drawing ────────────────────────────────────────────────
+
+function drawBlock(ctx, cx, cy, color, alpha, size) {
+  size = size || B;
+  const col = COL[color];
+  ctx.save();
+  ctx.globalAlpha = alpha !== undefined ? alpha : 1;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = col;
+  ctx.fillRect(cx * size + 1, cy * size + 1, size - 2, size - 2);
+  // top/left highlight
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  ctx.fillRect(cx * size + 2, cy * size + 2, size - 4, 3);
+  ctx.fillRect(cx * size + 2, cy * size + 2, 3, size - 4);
+  // bottom/right shadow
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.fillRect(cx * size + 1, cy * size + size - 3, size - 2, 2);
+  ctx.fillRect(cx * size + size - 3, cy * size + 1, 2, size - 2);
+  ctx.restore();
+}
+
+function drawFlash(r) {
+  gx.save();
+  gx.fillStyle = 'rgba(255,255,255,.85)';
+  gx.shadowColor = '#fff';
+  gx.shadowBlur = 20;
+  gx.fillRect(0, r * B, COLS * B, B);
+  gx.restore();
+}
+
+function render(ts) {
+  // Drop logic
+  if (!paused && !over && clearFlash.length === 0) {
+    if (ts - lastTs >= dropMs) {
+      if (valid(cur.s, cur.x, cur.y + 1)) cur.y++;
+      else lock();
+      lastTs = ts;
+    }
+  }
+
+  // ── Board clear
+  gx.fillStyle = '#06060f';
+  gx.fillRect(0, 0, gc.width, gc.height);
+
+  // ── Grid lines
+  gx.strokeStyle = 'rgba(20,20,60,.9)';
+  gx.lineWidth = .5;
+  for (let r = 0; r <= ROWS; r++) {
+    gx.beginPath(); gx.moveTo(0, r*B); gx.lineTo(COLS*B, r*B); gx.stroke();
+  }
+  for (let c = 0; c <= COLS; c++) {
+    gx.beginPath(); gx.moveTo(c*B, 0); gx.lineTo(c*B, ROWS*B); gx.stroke();
+  }
+
+  // ── Placed blocks
+  board.forEach((row, r) =>
+    row.forEach((v, c) => { if (v) drawBlock(gx, c, r, v); })
+  );
+
+  // ── Flash effect
+  if (clearFlash.length) {
+    clearFlash.forEach(r => drawFlash(r));
+  }
+
+  // ── Ghost piece
+  if (!over && clearFlash.length === 0) {
+    const gy = ghost();
+    if (gy !== cur.y) {
+      cur.s.forEach((row, r) =>
+        row.forEach((v, c) => {
+          if (v) {
+            gx.save();
+            gx.globalAlpha = .18;
+            gx.fillStyle = COL[cur.c];
+            gx.fillRect((cur.x+c)*B+1, (gy+r)*B+1, B-2, B-2);
+            gx.restore();
+          }
+        })
+      );
+    }
+
+    // ── Current piece
+    cur.s.forEach((row, r) =>
+      row.forEach((v, c) => { if (v) drawBlock(gx, cur.x+c, cur.y+r, cur.c); })
+    );
+  }
+
+  // ── Overlays
+  if (paused && !over) {
+    gx.fillStyle = 'rgba(6,6,15,.75)';
+    gx.fillRect(0,0,gc.width,gc.height);
+    gx.save();
+    gx.shadowColor = var_cyan; gx.shadowBlur = 30;
+    gx.fillStyle = '#00ffee';
+    gx.font = 'bold 20px "Courier New"';
+    gx.textAlign = 'center';
+    gx.letterSpacing = '6px';
+    gx.fillText('PAUSED', gc.width/2, gc.height/2);
+    gx.font = '9px "Courier New"';
+    gx.fillStyle = 'rgba(0,255,238,.5)';
+    gx.fillText('PRESS P TO CONTINUE', gc.width/2, gc.height/2 + 28);
+    gx.restore();
+  }
+
+  if (over) {
+    gx.fillStyle = 'rgba(6,6,15,.82)';
+    gx.fillRect(0,0,gc.width,gc.height);
+    gx.save();
+    gx.shadowColor = '#ff0066'; gx.shadowBlur = 40;
+    gx.fillStyle = '#ff0066';
+    gx.font = 'bold 22px "Courier New"';
+    gx.textAlign = 'center';
+    gx.fillText('GAME OVER', gc.width/2, gc.height/2 - 16);
+    gx.shadowColor = '#ffee00'; gx.shadowBlur = 15;
+    gx.fillStyle = '#ffee00';
+    gx.font = '9px "Courier New"';
+    gx.fillText(`SCORE: ${String(score).padStart(6,'0')}`, gc.width/2, gc.height/2 + 14);
+    gx.fillStyle = 'rgba(255,238,0,.55)';
+    gx.fillText('PRESS ENTER TO PLAY AGAIN', gc.width/2, gc.height/2 + 36);
+    gx.restore();
+    creditEl.classList.remove('hidden');
+  }
+
+  raf = requestAnimationFrame(render);
+}
+
+const var_cyan = '#00ffee';
+
+function drawNext() {
+  nx.fillStyle = '#06060f';
+  nx.fillRect(0,0,nc.width,nc.height);
+  if (!nxt) return;
+  const bs = 18;
+  const pw = nxt.s[0].length, ph = nxt.s.length;
+  const ox = Math.floor((nc.width/bs - pw) / 2);
+  const oy = Math.floor((nc.height/bs - ph) / 2);
+  nxt.s.forEach((row, r) =>
+    row.forEach((v, c) => {
+      if (!v) return;
+      nx.save();
+      nx.shadowColor = COL[nxt.c]; nx.shadowBlur = 10;
+      nx.fillStyle = COL[nxt.c];
+      nx.fillRect((ox+c)*bs+1, (oy+r)*bs+1, bs-2, bs-2);
+      nx.fillStyle = 'rgba(255,255,255,.25)';
+      nx.fillRect((ox+c)*bs+2, (oy+r)*bs+2, bs-4, 3);
+      nx.restore();
+    })
+  );
+}
+
+// ─── Input ──────────────────────────────────────────────────
+
+function tryRotate() {
+  const rot = rotate90(cur.s);
+  const kicks = [0, 1, -1, 2, -2];
+  for (const k of kicks)
+    if (valid(rot, cur.x+k, cur.y)) { cur.s = rot; cur.x += k; return; }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && over) { init(); return; }
+  if ((e.key === 'p' || e.key === 'P') && !over) { paused = !paused; return; }
+  if (paused || over || clearFlash.length) return;
+  switch (e.key) {
+    case 'ArrowLeft':
+      if (valid(cur.s, cur.x-1, cur.y)) cur.x--;
+      e.preventDefault(); break;
+    case 'ArrowRight':
+      if (valid(cur.s, cur.x+1, cur.y)) cur.x++;
+      e.preventDefault(); break;
+    case 'ArrowDown':
+      if (valid(cur.s, cur.x, cur.y+1)) { cur.y++; score++; updateUI(); }
+      e.preventDefault(); break;
+    case 'ArrowUp':
+      tryRotate();
+      e.preventDefault(); break;
+    case ' ':
+      const gy = ghost();
+      score += (gy - cur.y) * 2;
+      cur.y = gy;
+      lock();
+      updateUI();
+      e.preventDefault(); break;
+  }
+});
+
+// Touch buttons
+function touch(id, fn) {
+  const el = document.getElementById(id);
+  let interval;
+  const start = () => { fn(); interval = setInterval(fn, 120); };
+  const end = () => clearInterval(interval);
+  el.addEventListener('touchstart', e => { e.preventDefault(); start(); }, {passive:false});
+  el.addEventListener('touchend', end);
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mouseup', end);
+}
+
+touch('tLeft', () => { if (!paused && !over && !clearFlash.length && valid(cur.s, cur.x-1, cur.y)) cur.x--; });
+touch('tRight', () => { if (!paused && !over && !clearFlash.length && valid(cur.s, cur.x+1, cur.y)) cur.x++; });
+touch('tDown', () => {
+  if (!paused && !over && !clearFlash.length) {
+    if (valid(cur.s, cur.x, cur.y+1)) { cur.y++; score++; updateUI(); }
+  }
+});
+
+document.getElementById('tRotate').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!paused && !over && !clearFlash.length) tryRotate();
+}, {passive:false});
+document.getElementById('tRotate').addEventListener('click', () => {
+  if (!paused && !over && !clearFlash.length) tryRotate();
+});
+
+document.getElementById('tDrop').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!paused && !over && !clearFlash.length) {
+    const gy = ghost(); score += (gy - cur.y) * 2; cur.y = gy;
+    lock(); updateUI();
+  }
+}, {passive:false});
+document.getElementById('tDrop').addEventListener('click', () => {
+  if (!paused && !over && !clearFlash.length) {
+    const gy = ghost(); score += (gy - cur.y) * 2; cur.y = gy;
+    lock(); updateUI();
+  }
+});
+
+// ─── Start ──────────────────────────────────────────────────
+hi = 0;
+init();
+lastTs = performance.now();
+raf = requestAnimationFrame(render);
+</script>
