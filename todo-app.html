@@ -1,0 +1,574 @@
+<title>할 일 목록</title>
+<style>
+  :root {
+    --bg: #F2F2F0;
+    --surface: #FFFFFF;
+    --accent: #16794C;
+    --accent-hover: #125E3C;
+    --accent-light: #EDFBF3;
+    --text: #18181B;
+    --text-muted: #71717A;
+    --text-done: #A1A1AA;
+    --border: #E4E4E7;
+    --danger: #DC2626;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.09);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 44px 24px 18px;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .app-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+    color: var(--text);
+  }
+
+  .remaining {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .date-str {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* ── Input ── */
+  .input-wrap {
+    padding: 0 24px 18px;
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 6px 6px 6px 16px;
+  }
+
+  .task-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    color: var(--text);
+    background: transparent;
+    padding: 8px 0;
+    font-family: inherit;
+  }
+
+  .task-input::placeholder { color: var(--text-muted); }
+
+  .add-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .add-btn:hover { background: var(--accent-hover); }
+  .add-btn:active { transform: scale(0.93); }
+  .add-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ── Filters ── */
+  .filters {
+    display: flex;
+    gap: 4px;
+    padding: 0 24px 14px;
+  }
+
+  .filter-btn {
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    padding: 6px 13px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .filter-btn:hover { background: var(--surface); color: var(--text); }
+  .filter-btn.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .filter-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ── Task list ── */
+  .task-list {
+    flex: 1;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+  }
+
+  /* ── Task item ── */
+  .task-item {
+    background: #0d0d0d;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 12px 14px 16px;
+    animation: neonBlueFlicker 2.8s infinite;
+  }
+  .task-item:not(.done) .task-text {
+    color: #2af0ff;
+    text-shadow:
+      0 0 4px #2af0ff,
+      0 0 12px #00cfff,
+      0 0 28px #0099ff,
+      0 0 50px #0066cc;
+    animation: neonBlueText 2.8s infinite;
+  }
+  .task-item:not(.done) .cb-face {
+    background: transparent;
+    border-color: #2af0ff;
+    box-shadow: 0 0 8px #2af0ff, 0 0 20px #0099ff;
+    animation: neonBlueText 2.8s infinite;
+  }
+
+  @keyframes neonBlueFlicker {
+    0%   { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+    7%   { box-shadow: none; }
+    12%  { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+    18%  { box-shadow: 0 0 2px #00cfff; }
+    22%  { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+    70%  { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+    74%  { box-shadow: none; }
+    77%  { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+    82%  { box-shadow: none; }
+    86%  { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+    100% { box-shadow: 0 0 6px #00cfff, 0 0 18px #0099ff, 0 0 40px #0055cc; }
+  }
+
+  @keyframes neonBlueText {
+    0%   { opacity: 1; }
+    7%   { opacity: 0.2; }
+    12%  { opacity: 1; }
+    18%  { opacity: 0.5; }
+    22%  { opacity: 1; }
+    70%  { opacity: 1; }
+    74%  { opacity: 0.2; }
+    77%  { opacity: 1; }
+    82%  { opacity: 0.2; }
+    86%  { opacity: 1; }
+    100% { opacity: 1; }
+  }
+  .task-item.done {
+    background: #0d0d0d;
+    animation: neonFlicker 2.4s infinite;
+  }
+
+  /* Custom checkbox */
+  .cb-wrap {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    position: relative;
+    cursor: pointer;
+  }
+  .cb-wrap input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .cb-face {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .cb-wrap:hover .cb-face { border-color: var(--accent); }
+  .cb-wrap input:checked + .cb-face {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .cb-face svg { opacity: 0; transition: opacity 0.1s; }
+  .cb-wrap input:checked + .cb-face svg { opacity: 1; }
+  .cb-wrap input:focus-visible + .cb-face {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .task-text {
+    flex: 1;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--text);
+    word-break: break-word;
+    cursor: pointer;
+    user-select: none;
+  }
+  .task-item.done .task-text {
+    color: #ff2a2a;
+    text-decoration: line-through;
+    text-decoration-color: #ff2a2a;
+    text-shadow:
+      0 0 4px #ff2a2a,
+      0 0 12px #ff2a2a,
+      0 0 28px #ff0000,
+      0 0 50px #cc0000;
+    animation: neonText 2.4s infinite;
+  }
+
+  .task-item.done .cb-face {
+    background: #ff2a2a;
+    border-color: #ff2a2a;
+    box-shadow: 0 0 8px #ff2a2a, 0 0 20px #ff0000;
+    animation: neonText 2.4s infinite;
+  }
+
+  @keyframes neonFlicker {
+    0%   { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+    5%   { box-shadow: none; }
+    10%  { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+    15%  { box-shadow: 0 0 2px #ff0000; }
+    20%  { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+    75%  { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+    80%  { box-shadow: none; }
+    83%  { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+    87%  { box-shadow: none; }
+    90%  { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+    100% { box-shadow: 0 0 6px #ff0000, 0 0 18px #ff0000, 0 0 40px #cc0000; }
+  }
+
+  @keyframes neonText {
+    0%   { opacity: 1; }
+    5%   { opacity: 0.3; }
+    10%  { opacity: 1; }
+    15%  { opacity: 0.6; }
+    20%  { opacity: 1; }
+    75%  { opacity: 1; }
+    80%  { opacity: 0.2; }
+    83%  { opacity: 1; }
+    87%  { opacity: 0.2; }
+    90%  { opacity: 1; }
+    100% { opacity: 1; }
+  }
+
+  .obang-btn {
+    background: none;
+    border: 1.5px solid #ff2a2a;
+    color: #ff2a2a;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    text-shadow: 0 0 6px #ff2a2a;
+    box-shadow: 0 0 6px #ff0000, inset 0 0 4px rgba(255,0,0,0.1);
+    animation: neonText 2.4s infinite;
+    transition: background 0.15s;
+  }
+  .obang-btn:hover {
+    background: rgba(255,42,42,0.15);
+  }
+  .obang-btn:focus-visible { outline: 2px solid #ff2a2a; outline-offset: 2px; }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+  .task-item:hover .del-btn,
+  .task-item:focus-within .del-btn { opacity: 1; }
+  @media (hover: none) { .del-btn { opacity: 1; } }
+  .del-btn:hover { color: var(--danger); }
+  .del-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
+
+  /* ── Empty state ── */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 64px 16px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .empty-title { font-size: 15px; font-weight: 500; color: var(--text-muted); }
+  .empty-sub { font-size: 13px; color: #A1A1AA; }
+
+  /* ── Footer ── */
+  .footer {
+    padding: 16px 24px 36px;
+    display: flex;
+    justify-content: center;
+  }
+  .clear-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: 6px;
+    transition: color 0.15s;
+  }
+  .clear-btn:hover:not(:disabled) { color: var(--danger); }
+  .clear-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .clear-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ── Slide-in animation ── */
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .task-item.is-new { animation: slideIn 0.18s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .task-item.is-new { animation: none; } }
+</style>
+
+<div class="app">
+  <header class="header">
+    <div class="header-row">
+      <h1 class="app-title">할 일</h1>
+      <span class="remaining" id="remaining">0개 남음</span>
+    </div>
+    <p class="date-str" id="dateStr"></p>
+  </header>
+
+  <div class="input-wrap">
+    <div class="input-row">
+      <input
+        id="taskInput"
+        class="task-input"
+        type="text"
+        placeholder="새 작업 입력 후 Enter..."
+        maxlength="200"
+        autocomplete="off"
+        aria-label="새 작업"
+      />
+      <button class="add-btn" id="addBtn" aria-label="추가">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 2v12M2 8h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <nav class="filters" role="tablist" aria-label="필터">
+    <button class="filter-btn active" data-f="all" role="tab" aria-selected="true">전체</button>
+    <button class="filter-btn" data-f="active" role="tab" aria-selected="false">진행 중</button>
+    <button class="filter-btn" data-f="done" role="tab" aria-selected="false">완료</button>
+  </nav>
+
+  <ul class="task-list" id="taskList" role="list" aria-label="할 일 목록"></ul>
+
+  <footer class="footer">
+    <button class="clear-btn" id="clearBtn" disabled>완료된 항목 모두 삭제</button>
+  </footer>
+</div>
+
+<script>
+  let tasks = [];
+  let nextId = 1;
+  let filter = 'all';
+
+  try {
+    tasks = JSON.parse(localStorage.getItem('todo_tasks') || '[]');
+    nextId = parseInt(localStorage.getItem('todo_nextId') || '1');
+  } catch(e) {}
+
+  const taskInput = document.getElementById('taskInput');
+  const addBtn    = document.getElementById('addBtn');
+  const taskList  = document.getElementById('taskList');
+  const remaining = document.getElementById('remaining');
+  const dateStr   = document.getElementById('dateStr');
+  const clearBtn  = document.getElementById('clearBtn');
+  const filterBtns = document.querySelectorAll('.filter-btn');
+
+  // Date
+  const d = new Date();
+  const dNames = ['일','월','화','수','목','금','토'];
+  dateStr.textContent = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${dNames[d.getDay()]})`;
+
+  function save() {
+    try {
+      localStorage.setItem('todo_tasks', JSON.stringify(tasks));
+      localStorage.setItem('todo_nextId', nextId);
+    } catch(e) {}
+  }
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function addTask() {
+    const text = taskInput.value.trim();
+    if (!text) { taskInput.focus(); return; }
+    tasks.unshift({ id: nextId++, text, done: false, _new: true });
+    taskInput.value = '';
+    save();
+    render();
+    setTimeout(() => { tasks.forEach(t => t._new = false); }, 300);
+  }
+
+  function toggleTask(id) {
+    const t = tasks.find(t => t.id === id);
+    if (t) { t.done = !t.done; save(); render(); }
+  }
+
+  function deleteTask(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    save();
+    render();
+  }
+
+  function obangGagi(id) {
+    const t = tasks.find(t => t.id === id);
+    if (t) { t.done = false; save(); render(); }
+  }
+
+  function clearDone() {
+    tasks = tasks.filter(t => !t.done);
+    save();
+    render();
+  }
+
+  function render() {
+    const activeCount = tasks.filter(t => !t.done).length;
+    remaining.textContent = `${activeCount}개 남음`;
+
+    const hasDone = tasks.some(t => t.done);
+    clearBtn.disabled = !hasDone;
+
+    const visible = tasks.filter(t => {
+      if (filter === 'active') return !t.done;
+      if (filter === 'done') return t.done;
+      return true;
+    });
+
+    if (visible.length === 0) {
+      const msgs = {
+        all:    ['아직 할 일이 없어요',     '새 작업을 추가해보세요'],
+        active: ['진행 중인 작업이 없어요', '모두 완료했어요!'],
+        done:   ['완료된 작업이 없어요',    '작업을 완료하면 여기에 표시돼요'],
+      };
+      const [title, sub] = msgs[filter];
+      taskList.innerHTML = `
+        <li class="empty" role="status">
+          <div class="empty-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M4 10l4 4 8-8" stroke="#A1A1AA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="empty-title">${title}</span>
+          <span class="empty-sub">${sub}</span>
+        </li>`;
+      return;
+    }
+
+    taskList.innerHTML = visible.map(t => `
+      <li class="task-item${t.done ? ' done' : ''}${t._new ? ' is-new' : ''}" data-id="${t.id}">
+        <label class="cb-wrap" aria-label="${t.done ? '완료 취소' : '완료로 표시'}">
+          <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask(${t.id})">
+          <span class="cb-face">
+            <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+              <path d="M1 4l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </label>
+        <span class="task-text" onclick="toggleTask(${t.id})" role="button" tabindex="0"
+          onkeydown="if(event.key==='Enter'||event.key===' ')toggleTask(${t.id})">${esc(t.text)}</span>
+        ${t.done ? `<button class="obang-btn" onclick="obangGagi(${t.id})">오방가기</button>` : ''}
+        <button class="del-btn" onclick="deleteTask(${t.id})" aria-label="삭제">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2.5 2.5l9 9M11.5 2.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </li>
+    `).join('');
+  }
+
+  addBtn.addEventListener('click', addTask);
+  taskInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+  clearBtn.addEventListener('click', clearDone);
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filter = btn.dataset.f;
+      filterBtns.forEach(b => {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-selected', b === btn);
+      });
+      render();
+    });
+  });
+
+  render();
+</script>
